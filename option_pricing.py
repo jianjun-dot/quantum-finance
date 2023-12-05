@@ -15,7 +15,7 @@ class OptionPricing():
     def __init__(self):
         pass
     
-    def define_uncertainty_model(self):
+    def define_uncertainty_model(self, ):
         pass
     
     def define_payoff_function(self):
