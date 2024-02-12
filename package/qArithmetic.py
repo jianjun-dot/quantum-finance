@@ -2,6 +2,7 @@ from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 import numpy as np
 from qiskit.quantum_info.operators import Operator
 from qiskit.circuit.library import QFT, MCXGate
+from qiskit.circuit.library import VBERippleCarryAdder
 
 def rotation(k):
     return np.array([[1, 0], [0, np.exp(2 * np.pi * 1j / 2**k)]])
@@ -116,3 +117,19 @@ def QComp(n,m):
     circuit.append(mcx, carry_register[:]+ second_number_register[:]+ [ancilla_register[0]])
     circuit.append(mcx, carry_register[:]+ second_number_register[:]+ [ancilla_register[2]])
     return circuit
+
+def subtractor(first_num_size, second_num_size):
+    firstRegister = QuantumRegister(first_num_size, 'first')
+    secondRegister = QuantumRegister(second_num_size, 'second')
+    carryRegister = QuantumRegister(1, 'carry')
+    ancillaRegister = QuantumRegister(first_num_size, 'ancilla')
+
+    adder = VBERippleCarryAdder(first_num_size, name="Adder")
+    # adder = DraperQFTAdder(num_qubits_for_each_dimension, kind="half",name="Adder")
+    num_qubits = len(adder.qubits)
+    
+    circ = QuantumCircuit(carryRegister, firstRegister, secondRegister, ancillaRegister, name="subtractor")
+    circ.x(secondRegister)
+    circ.x(carryRegister)
+    circ.append(adder, list(range(num_qubits)))
+    return circ

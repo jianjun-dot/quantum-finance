@@ -10,7 +10,7 @@ from qiskit_aer import AerSimulator
 from ModifiedIQAE.algorithms.amplitude_estimators.mod_iae import ModifiedIterativeAmplitudeEstimation
 from typing import List, Union
 from scipy.interpolate import griddata
-from .qArithmetic import QComp
+from .qArithmetic import QComp, subtractor
 
 
 ############
@@ -44,8 +44,7 @@ class OptionParams():
             self.strike_prices = [strike_prices]
         else:
             self.strike_prices = strike_prices
-        
-    
+         
     def define_covariance_matrix(self, cov: np.ndarray):
         self.cov = cov
     
@@ -58,7 +57,10 @@ class OptionParams():
         sigma = variable['vol'] * np.sqrt(variable['T'])
         mean = np.exp(mu + sigma**2/2)
         std = np.sqrt((np.exp(sigma**2) - 1) * np.exp(2*mu + sigma**2))
-        low = np.maximum(0, mean - 3*std)
+        if self.option_type == 'spread call':
+            low = 0
+        else:
+            low = np.maximum(0, mean - 3*std)
         high = mean + 3*std
         variable['mu'] = mu
         variable['sigma'] = sigma
@@ -67,8 +69,6 @@ class OptionParams():
         variable['low'] = low
         variable['high'] = high
         return variable
-    
-    
 
 class OptionPricing():
     
@@ -115,7 +115,8 @@ class OptionPricing():
             strike_price = strike_price[0]
             self._define_basket_call_options(strike_price, c_approx)
         elif option_type == 'spread call':
-            self.objective = self._define_spread_call_options(strike_price, c_approx)
+            strike_price = strike_price[0]
+            self._define_spread_call_options(strike_price, c_approx=0.01)
         elif option_type == 'call-on-max':
             strike_price = strike_price[0]
             self._define_call_on_max_options(strike_price, c_approx)
@@ -123,7 +124,7 @@ class OptionPricing():
             strike_price = strike_price[0]
             self._define_call_on_min_options(strike_price, c_approx)
         elif option_type == 'best-of-call':
-            self.objective = self._define_best_of_call_options(strike_price, c_approx)
+            self._define_best_of_call_options(strike_price, c_approx)
         else:
             raise Exception("Option type not defined!")
     
@@ -212,8 +213,56 @@ class OptionPricing():
         self.objective_index = objective_index
         self.option = basket_option
 
-    def _define_spread_call_options(self):
-        pass
+    def _define_spread_call_options(self, strike_price: float, c_approx=0.01):
+        params = self.options_params.individual_params[0]
+        num_qubits_for_each_dimension = self.num_uncertainty_qubits+1
+        low_ = params['low']
+        high_ = params['high']
+        self.strike_price = strike_price
+        print(self.num_uncertainty_qubits)
+        print(low_)
+        print(high_)
+        step = high_/(2**self.num_uncertainty_qubits-1)
+        print(step)
+        print("domain: {}".format([-2**self.num_uncertainty_qubits *step, high_]))
+
+        # setup piecewise linear objective fcuntion
+        breakpoints = [-2**self.num_uncertainty_qubits*step, strike_price]
+        slopes = [0, 1]
+        offsets = [0, 0]
+
+        f_min = 0
+        f_max = high_ - strike_price
+        spread_objective = LinearAmplitudeFunction(
+            num_qubits_for_each_dimension,
+            slopes,
+            offsets,
+            domain=(-2**self.num_uncertainty_qubits *step, high_),
+            image=(f_min, f_max),
+            rescaling_factor=c_approx,
+            breakpoints=breakpoints,
+        )
+        
+        firstRegister = QuantumRegister(num_qubits_for_each_dimension, 'first')
+        secondRegister = QuantumRegister(num_qubits_for_each_dimension, 'second')
+        objectiveRegister = QuantumRegister(1, 'obj')
+        carryRegister = QuantumRegister(1, 'carry')
+        ancillaRegister = AncillaRegister(max(num_qubits_for_each_dimension, spread_objective.num_ancillas), 'ancilla')
+        optionAncillaRegister = AncillaRegister(spread_objective.num_ancillas, 'optionAncilla')
+
+        subtract_circuit = subtractor(num_qubits_for_each_dimension, num_qubits_for_each_dimension)
+
+        spread_option = QuantumCircuit(carryRegister, firstRegister, secondRegister,objectiveRegister, ancillaRegister,  optionAncillaRegister)
+        spread_option.append(self.uncertainty_model, firstRegister[:-1] + secondRegister[:-1])
+        spread_option.append(subtract_circuit, carryRegister[:] + firstRegister[:]+ secondRegister[:] + ancillaRegister[:])
+        spread_option.x(secondRegister[-1])
+        spread_option.append(spread_objective, secondRegister[:] + objectiveRegister[:] + optionAncillaRegister[:])
+        objective_index = num_qubits_for_each_dimension * 2 + 1
+        print(objective_index)
+        self.objective = spread_objective
+        self.objective_index = objective_index
+        self.option = spread_option
+        
     
     def _define_call_on_max_options(self, strike_price: float, c_approx=0.125):
         params = self.options_params.individual_params[0]
@@ -349,7 +398,7 @@ class OptionPricing():
         return self.result
     
     def process_results(self):
-        if self.option_type in ['call', 'call-on-max', 'call-on-min']:
+        if self.option_type in ['call', 'call-on-max', 'call-on-min', 'spread call']:
             conf_int = (
                 np.array(self.result.confidence_interval_processed)
             )
@@ -371,7 +420,8 @@ class OptionPricing():
             exact_value = self._compute_exact_basket_call_expectation()
             return exact_value
         elif self.option_type == 'spread call':
-            self.objective = self._compute_exact_spread_call_expectation()
+            exact_value = self._compute_exact_spread_call_expectation()
+            return exact_value
         elif self.option_type == 'call-on-max':
             exact_value = self._compute_exact_call_on_max_expectation()
             return exact_value
@@ -397,7 +447,14 @@ class OptionPricing():
         return expected_value
     
     def _compute_exact_spread_call_expectation(self):
-        pass
+        diff_values = np.array([v[0]-v[1] for v in self.uncertainty_model.values])
+
+        exact_value = np.dot(
+            self.uncertainty_model.probabilities[diff_values >= self.strike_price],
+            diff_values[diff_values >= self.strike_price] - self.strike_price,
+        )
+        
+        return exact_value
     
     def _compute_exact_call_on_max_expectation(self):
         exact_value = 0
@@ -415,6 +472,9 @@ class OptionPricing():
         self.create_estimation_problem()
         self.run(epsilon, alpha, shots)
         return self.process_results()
+    
+    def get_num_oracle_calls(self):
+        return self.result.num_oracle_queries
     
         
 class Plotter():
