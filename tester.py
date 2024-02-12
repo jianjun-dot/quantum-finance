@@ -2,13 +2,15 @@
 import numpy as np
 from package.option_pricing import OptionParams
 from typing import Union
+import json
+from package.option_pricing import OptionPricing, OptionParams
 
 class tester_params():
     def __init__(self):
-        self.init_spot_prices = [1.0, 1.5, 2.0, 2.5, 3.0]
-        self.init_volatilities = [0.1, 0.2, 0.3, 0.4, 0.5]
-        self.init_interest_rates = [0.01, 0.02, 0.03, 0.04, 0.05]
-        self.init_maturities = [10, 20, 30, 40, 50]
+        self.init_spot_prices = [2.0,2.25, 2.5, 2.75, 3]
+        self.init_volatilities = [0.3, 0.35, 0.4, 0.45, 0.5]
+        self.init_interest_rates = [0.03, 0.035, 0.04, 0.045, 0.05]
+        self.init_maturities = [30,40,50,60]
         self.define_all_test_cases()
         
     def generate_covariance_matrix(self, first_var, second_var):
@@ -38,7 +40,7 @@ class tester_params():
                                 "S": spot_price,
                                 "vol": volatility,
                                 "r": interest_rate,
-                                "T": maturity
+                                "T": maturity/365
                             }
                         )
         self.all_test_cases = all_test_cases
@@ -47,7 +49,7 @@ class tester_params():
     def define_test_strike_prices(self, option_type: str, option: OptionParams, num_test_cases: int) -> Union[list[int], list[list]]:
         if option_type == 'call':
             upper_bound = option.individual_params[0]['high']*0.9
-            lower_bound = option.individual_params[0]['low']
+            lower_bound = option.individual_params[0]['low']*1.1
             strike_prices = np.linspace(lower_bound, upper_bound, num_test_cases)
             
         elif option_type == 'spread call':
@@ -59,36 +61,36 @@ class tester_params():
             
         elif option_type == 'basket call':
             first_high = option.individual_params[0]['high']
-            first_low = option.individual_params[0]['low']
+            first_low = option.individual_params[0]['low']*1.1
             second_high = option.individual_params[1]['high']
-            second_low = option.individual_params[1]['low']
+            second_low = option.individual_params[1]['low']*1.1
             upper_bound = first_high + second_high
             lower_bound = first_low + second_low
             strike_prices = np.linspace(lower_bound, upper_bound * 0.9, num_test_cases)
         
         elif option_type == 'call-on-max':
             first_high = option.individual_params[0]['high']
-            first_low = option.individual_params[0]['low']
+            first_low = option.individual_params[0]['low']*1.1
             second_high = option.individual_params[1]['high']
-            second_low = option.individual_params[1]['low']
+            second_low = option.individual_params[1]['low']*1.1
             upper_bound = np.max([first_high, second_high])*0.9
             lower_bound = np.min([first_low, second_low])
             strike_prices = np.linspace(lower_bound, upper_bound, num_test_cases)
         
         elif option_type == 'call-on-min':
             first_high = option.individual_params[0]['high']
-            first_low = option.individual_params[0]['low']
+            first_low = option.individual_params[0]['low']*1.1
             second_high = option.individual_params[1]['high']
-            second_low = option.individual_params[1]['low']
+            second_low = option.individual_params[1]['low']*1.1
             upper_bound = np.min([first_high, second_high])
             lower_bound = np.min([first_low, second_low])
             strike_prices = np.linspace(lower_bound, upper_bound, num_test_cases)
         
         elif option_type == 'best-of-call':
             first_high = option.individual_params[0]['high']
-            first_low = option.individual_params[0]['low']
+            first_low = option.individual_params[0]['low']*1.1
             second_high = option.individual_params[1]['high']
-            second_low = option.individual_params[1]['low']
+            second_low = option.individual_params[1]['low']*1.1
             first_strike_prices = np.linspace(first_low, first_high, num_test_cases)
             second_strike_prices = np.linspace(second_low, second_high, num_test_cases)
             strike_prices = []
@@ -151,15 +153,166 @@ class tester_params():
                 strike_prices = self.define_test_strike_prices(option_type, option, num_test_cases)
                 for strike_price in strike_prices:
                     new_option = OptionParams(num_uncertainty_qubits=num_uncertainty, option_type=option_type)
-                    new_option.add_variable(selection[0])
-                    new_option.add_variable(selection[1])
-                    new_option.define_covariance_matrix(cov)
+                    new_option.add_variable(selection)
                     new_option.define_strike_prices(strike_price)
                     test_cases.append(new_option)
                     
         return test_cases
                 
             
-            
+
+    
+    
+
+class Tester():
+    def __init__(self, num_uncertainty_qubits):
+        self.test_params = tester_params()
+        self.num_uncertainty_qubits = num_uncertainty_qubits
+        pass
+    
+    def test_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="data"):
+        test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "call", num_test_cases)
+        test_results = {}
+        for index, test_case in enumerate(test_cases):
+            test_results["test {}".format(index)] = {}
+            test_results["test {}".format(index)]["params"] = test_case.individual_params
+            test_results["test {}".format(index)]["test_params"] = {
+                "epsilon" : epsilon,
+                "alpha" : alpha
+            }
+            myOptionPricer = OptionPricing(test_case)
+            all_results = []
+            for _ in range(sample_size):
+                estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
+                exact_expectation = myOptionPricer.compute_exact_expectation()
+                correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                all_results.append(curr_result)
+            test_results["test {}".format(index)]["results"] = curr_result
+        
+        print(test_results)
+        with open('{}.json'.format(file_name), 'w') as f:
+            json.dump(test_results, f)
+
+    def test_basket_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="basket_call_options_test_results"):
+        test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "basket call", num_test_cases)
+        test_results = {}
+        for index, test_case in enumerate(test_cases):
+            test_results["test {}".format(index)] = {}
+            test_results["test {}".format(index)]["params"] = test_case.individual_params
+            curr_cov = []
+            for i in range(2):
+                    curr_cov.append([test_case.cov[i,0],test_case.cov[i,1]])  
+            test_results["test {}".format(index)]["covariance"] = curr_cov
+            test_results["test {}".format(index)]["test_params"] = {
+                "epsilon" : epsilon,
+                "alpha" : alpha
+            }
+            myOptionPricer = OptionPricing(test_case)
+            all_results = []
+            for _ in range(sample_size):
+                estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
+                exact_expectation = myOptionPricer.compute_exact_expectation()
+                correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                all_results.append(curr_result)
+            test_results["test {}".format(index)]["results"] = curr_result
+        
+        print(test_results)
+        with open('{}.json'.format(file_name), 'w') as f:
+            json.dump(test_results, f)
+
+    def test_spread_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="spread_call_options_test_results"):
+        test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "spread call", num_test_cases)
+        test_results = {}
+        for index, test_case in enumerate(test_cases):
+            test_results["test {}".format(index)] = {}
+            test_results["test {}".format(index)]["params"] = test_case.individual_params
+            curr_cov = []
+            for i in range(2):
+                    curr_cov.append([test_case.cov[i,0],test_case.cov[i,1]])  
+            test_results["test {}".format(index)]["covariance"] = curr_cov
+            test_results["test {}".format(index)]["test_params"] = {
+                "epsilon" : epsilon,
+                "alpha" : alpha
+            }
+            myOptionPricer = OptionPricing(test_case)
+            all_results = []
+            for _ in range(sample_size):
+                estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
+                exact_expectation = myOptionPricer.compute_exact_expectation()
+                correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                all_results.append(curr_result)
+            test_results["test {}".format(index)]["results"] = curr_result
+        
+        print(test_results)
+        with open('{}.json'.format(file_name), 'w') as f:
+            json.dump(test_results, f)
+
+    def test_call_on_min_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="call_on_min_options_test_results"):
+        test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "call-on-min", num_test_cases)
+        test_results = {}
+        for index, test_case in enumerate(test_cases):
+            test_results["test {}".format(index)] = {}
+            test_results["test {}".format(index)]["params"] = test_case.individual_params
+            curr_cov = []
+            for i in range(2):
+                    curr_cov.append([test_case.cov[i,0],test_case.cov[i,1]])  
+            test_results["test {}".format(index)]["covariance"] = curr_cov
+            test_results["test {}".format(index)]["test_params"] = {
+                "epsilon" : epsilon,
+                "alpha" : alpha
+            }
+            myOptionPricer = OptionPricing(test_case)
+            all_results = []
+            for _ in range(sample_size):
+                estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
+                exact_expectation = myOptionPricer.compute_exact_expectation()
+                correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                all_results.append(curr_result)
+            test_results["test {}".format(index)]["results"] = curr_result
+        
+        print(test_results)
+        with open('{}.json'.format(file_name), 'w') as f:
+            json.dump(test_results, f)
+
+    def test_call_on_max_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="call_on_max_options_test_results"):
+        test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "call-on-max", num_test_cases)
+        test_results = {}
+        for index, test_case in enumerate(test_cases):
+            test_results["test {}".format(index)] = {}
+            test_results["test {}".format(index)]["params"] = test_case.individual_params
+            curr_cov = []
+            for i in range(2):
+                    curr_cov.append([test_case.cov[i,0],test_case.cov[i,1]])  
+            test_results["test {}".format(index)]["covariance"] = curr_cov
+            test_results["test {}".format(index)]["test_params"] = {
+                "epsilon" : epsilon,
+                "alpha" : alpha
+            }
+            myOptionPricer = OptionPricing(test_case)
+            all_results = []
+            for _ in range(sample_size):
+                estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
+                exact_expectation = myOptionPricer.compute_exact_expectation()
+                correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                all_results.append(curr_result)
+            test_results["test {}".format(index)]["results"] = curr_result
+        
+        print(test_results)
+        with open('{}.json'.format(file_name), 'w') as f:
+            json.dump(test_results, f)
+
+    def test_best_of_call_options(self):
+        pass
+    
+    def run_test(self, num_uncertainty_qubits, num_tests):
+        pass
+    
+        
+    
         
         

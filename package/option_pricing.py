@@ -48,9 +48,14 @@ class OptionParams():
     def define_covariance_matrix(self, cov: np.ndarray):
         self.cov = cov
     
-    def add_variable(self, variable: dict):
-        variable = self._process_variable(variable)
-        self.individual_params.append(variable)
+    def add_variable(self, variable: Union[list, dict]):
+        if type(variable) is dict:
+            variable = self._process_variable(variable)
+            self.individual_params.append(variable)
+        elif type(variable) is list:
+            for var in variable:
+                curr_variable = self._process_variable(var)
+                self.individual_params.append(curr_variable)
     
     def _process_variable(self, variable: dict):
         mu = (variable['r'] - 0.5 * variable['vol']**2)* variable['T'] + np.log(variable['S'])
