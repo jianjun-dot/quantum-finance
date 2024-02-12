@@ -170,7 +170,7 @@ class Tester():
         self.num_uncertainty_qubits = num_uncertainty_qubits
         pass
     
-    def test_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="data"):
+    def test_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="vanilla_call_options"):
         test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "call", num_test_cases)
         test_results = {}
         for index, test_case in enumerate(test_cases):
@@ -188,7 +188,7 @@ class Tester():
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
                 curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
                 all_results.append(curr_result)
-            test_results["test {}".format(index)]["results"] = curr_result
+            test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
         with open('{}.json'.format(file_name), 'w') as f:
@@ -216,7 +216,7 @@ class Tester():
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
                 curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
                 all_results.append(curr_result)
-            test_results["test {}".format(index)]["results"] = curr_result
+            test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
         with open('{}.json'.format(file_name), 'w') as f:
@@ -244,7 +244,7 @@ class Tester():
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
                 curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
                 all_results.append(curr_result)
-            test_results["test {}".format(index)]["results"] = curr_result
+            test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
         with open('{}.json'.format(file_name), 'w') as f:
@@ -272,7 +272,7 @@ class Tester():
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
                 curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
                 all_results.append(curr_result)
-            test_results["test {}".format(index)]["results"] = curr_result
+            test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
         with open('{}.json'.format(file_name), 'w') as f:
@@ -300,7 +300,7 @@ class Tester():
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
                 curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
                 all_results.append(curr_result)
-            test_results["test {}".format(index)]["results"] = curr_result
+            test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
         with open('{}.json'.format(file_name), 'w') as f:
