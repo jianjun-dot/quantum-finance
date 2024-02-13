@@ -86,8 +86,8 @@ class OptionPricing():
         self.objective = None
         self.strike_prices = options_params.strike_prices
         self.define_uncertainty_model(options_params)
-        self._define_payoff_function(options_params.option_type, options_params.strike_prices)
-        self.option_type = options_params.option_type
+        # self._define_payoff_function(options_params.option_type, options_params.strike_prices)
+        # self.option_type = options_params.option_type
     
     def define_uncertainty_model(self, option_params: OptionParams):
         self.all_variables = option_params.individual_params
@@ -224,12 +224,12 @@ class OptionPricing():
         low_ = params['low']
         high_ = params['high']
         self.strike_price = strike_price
-        print(self.num_uncertainty_qubits)
-        print(low_)
-        print(high_)
+        # print(self.num_uncertainty_qubits)
+        # print(low_)
+        # print(high_)
         step = high_/(2**self.num_uncertainty_qubits-1)
-        print(step)
-        print("domain: {}".format([-2**self.num_uncertainty_qubits *step, high_]))
+        # print(step)
+        # print("domain: {}".format([-2**self.num_uncertainty_qubits *step, high_]))
 
         # setup piecewise linear objective fcuntion
         breakpoints = [-2**self.num_uncertainty_qubits*step, strike_price]
@@ -268,7 +268,6 @@ class OptionPricing():
         self.objective_index = objective_index
         self.option = spread_option
         
-    
     def _define_call_on_max_options(self, strike_price: float, c_approx=0.125):
         params = self.options_params.individual_params[0]
         self.high = params['high']
@@ -378,7 +377,10 @@ class OptionPricing():
         self.option = circuit
         return circuit
     
-    def create_estimation_problem(self):
+    def create_estimation_problem(self, epsilon=0.01):
+        scaling_param = np.sqrt(epsilon)
+        self._define_payoff_function(self.options_params.option_type, self.options_params.strike_prices, c_approx=scaling_param)
+        self.option_type = self.options_params.option_type
         # check if pre-requisites are satisfied
         if self.objective_index is None:
             raise Exception("Objective index not defined yet!")
@@ -474,7 +476,7 @@ class OptionPricing():
         return exact_value
     
     def estimate_expectation(self, epsilon=0.01, alpha=0.05, shots=100):
-        self.create_estimation_problem()
+        self.create_estimation_problem(epsilon)
         self.run(epsilon, alpha, shots)
         return self.process_results()
     

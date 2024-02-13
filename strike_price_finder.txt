@@ -1,1 +1,0 @@
-final strike price: 8.0, error: 0.0003846849996262773, iterations: 1final strike price: 8.0, error: 0.0003560297833399527, iterations: 1final strike price: 7.9886840820312495, error: 4.224281606800967e-06, iterations: 14

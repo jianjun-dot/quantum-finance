@@ -7,7 +7,7 @@ from package.option_pricing import OptionPricing, OptionParams
 
 class tester_params():
     def __init__(self):
-        self.init_spot_prices = [2.0,2.25, 2.5, 2.75, 3]
+        self.init_spot_prices = [2.0,2.25, 2.5, 2.75, 3.0]
         self.init_volatilities = [0.3, 0.35, 0.4, 0.45, 0.5]
         self.init_interest_rates = [0.03, 0.035, 0.04, 0.045, 0.05]
         self.init_maturities = [30,40,50,60]
@@ -25,8 +25,8 @@ class tester_params():
         return covariance_matrix
         
     def define_covariance_matrix(self, first_params, second_params):
-        first_var = first_params['vol'] * np.sqrt(first_params['T']/365)
-        second_var = second_params['vol'] * np.sqrt(second_params['T']/365)
+        first_var = first_params['vol'] * np.sqrt(first_params['T'])
+        second_var = second_params['vol'] * np.sqrt(second_params['T'])
         return self.generate_covariance_matrix(first_var, second_var)
     
     def define_all_test_cases(self):
@@ -44,7 +44,7 @@ class tester_params():
                             }
                         )
         self.all_test_cases = all_test_cases
-        return all_test_cases
+        return all_test_cases 
     
     def define_test_strike_prices(self, option_type: str, option: OptionParams, num_test_cases: int) -> Union[list[int], list[list]]:
         if option_type == 'call':
@@ -298,7 +298,8 @@ class Tester():
                 estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
                 exact_expectation = myOptionPricer.compute_exact_expectation()
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
-                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                num_oracle_queries = myOptionPricer.get_num_oracle_calls()
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval), num_oracle_queries]
                 all_results.append(curr_result)
             test_results["test {}".format(index)]["results"] = all_results
         
