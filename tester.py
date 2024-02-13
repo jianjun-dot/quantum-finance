@@ -4,6 +4,7 @@ from package.option_pricing import OptionParams
 from typing import Union
 import json
 from package.option_pricing import OptionPricing, OptionParams
+from datetime import datetime
 
 class tester_params():
     def __init__(self):
@@ -168,6 +169,7 @@ class Tester():
     def __init__(self, num_uncertainty_qubits):
         self.test_params = tester_params()
         self.num_uncertainty_qubits = num_uncertainty_qubits
+        
         pass
     
     def test_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="vanilla_call_options"):
@@ -186,13 +188,13 @@ class Tester():
                 estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
                 exact_expectation = myOptionPricer.compute_exact_expectation()
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
-                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                num_oracle_queries = myOptionPricer.get_num_oracle_calls()
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval), num_oracle_queries]
                 all_results.append(curr_result)
             test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
-        with open('{}.json'.format(file_name), 'w') as f:
-            json.dump(test_results, f)
+        self.save_file(file_name, test_results)
 
     def test_basket_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="basket_call_options_test_results"):
         test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "basket call", num_test_cases)
@@ -214,13 +216,13 @@ class Tester():
                 estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
                 exact_expectation = myOptionPricer.compute_exact_expectation()
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
-                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                num_oracle_queries = myOptionPricer.get_num_oracle_calls()
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval), num_oracle_queries]
                 all_results.append(curr_result)
             test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
-        with open('{}.json'.format(file_name), 'w') as f:
-            json.dump(test_results, f)
+        self.save_file(file_name, test_results)
 
     def test_spread_call_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="spread_call_options_test_results"):
         test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "spread call", num_test_cases)
@@ -242,13 +244,13 @@ class Tester():
                 estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
                 exact_expectation = myOptionPricer.compute_exact_expectation()
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
-                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                num_oracle_queries = myOptionPricer.get_num_oracle_calls()
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval), num_oracle_queries]
                 all_results.append(curr_result)
             test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
-        with open('{}.json'.format(file_name), 'w') as f:
-            json.dump(test_results, f)
+        self.save_file(file_name, test_results)
 
     def test_call_on_min_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="call_on_min_options_test_results"):
         test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "call-on-min", num_test_cases)
@@ -270,13 +272,13 @@ class Tester():
                 estimated_expectation, confidence_interval = myOptionPricer.estimate_expectation(epsilon=epsilon, alpha=alpha)
                 exact_expectation = myOptionPricer.compute_exact_expectation()
                 correct_confidence_interval = (confidence_interval[0] <= exact_expectation <= confidence_interval[1])
-                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval)]
+                num_oracle_queries = myOptionPricer.get_num_oracle_calls()
+                curr_result = [exact_expectation, estimated_expectation, confidence_interval[0], confidence_interval[1], str(correct_confidence_interval), num_oracle_queries]
                 all_results.append(curr_result)
             test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
-        with open('{}.json'.format(file_name), 'w') as f:
-            json.dump(test_results, f)
+        self.save_file(file_name, test_results)
 
     def test_call_on_max_options(self, num_test_cases, epsilon = 0.01, alpha=0.01, sample_size=1, file_name="call_on_max_options_test_results"):
         test_cases = self.test_params.define_systematic_test_cases(self.num_uncertainty_qubits, "call-on-max", num_test_cases)
@@ -304,14 +306,17 @@ class Tester():
             test_results["test {}".format(index)]["results"] = all_results
         
         print(test_results)
-        with open('{}.json'.format(file_name), 'w') as f:
-            json.dump(test_results, f)
-
+        self.save_file(file_name, test_results)
+            
     def test_best_of_call_options(self):
         pass
     
-    def run_test(self, num_uncertainty_qubits, num_tests):
-        pass
+    def save_file(self, file_name, test_results):
+        time_stamp = (datetime.today().strftime('%Y-%m-%d'), datetime.today().strftime('%H-%M-%S'))
+        stamped_file_name = "{}-{}-{}".format(file_name, time_stamp[0], time_stamp[1])
+        with open('{}.json'.format(stamped_file_name), 'w') as f:
+            json.dump(test_results, f)
+
     
         
     
