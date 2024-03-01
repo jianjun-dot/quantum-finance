@@ -104,6 +104,7 @@ def build_QNMSub(m, n):
     return quantum_circuit
 
 def QComp(n,m):
+    # 001: a = b, 010: a < b, 100: a > b
     carry_register = QuantumRegister(1, name='c')
     first_number_register = QuantumRegister(n, name='a')
     second_number_register = QuantumRegister(m, name='b')

@@ -396,12 +396,18 @@ class OptionPricing():
             post_processing=self.objective.post_processing,
         )
     
-    def run(self, epsilon=0.01, alpha=0.05, shots=100):
+    def run(self, epsilon=0.01, alpha=0.05, shots=100, method="MIQAE"):
         # construct amplitude estimation
-        ae = IterativeAmplitudeEstimation(
-            epsilon_target=epsilon, alpha=alpha, sampler=Sampler(run_options={"shots": shots})
-        )
-        self.result = ae.estimate(self.problem)
+        if method=="IQAE":
+            ae = IterativeAmplitudeEstimation(
+                epsilon_target=epsilon, alpha=alpha, sampler=Sampler(run_options={"shots": shots})
+            )
+            self.result = ae.estimate(self.problem)
+        elif method == "MIQAE":
+            qi = QuantumInstance(backend=AerSimulator(), shots=shots)
+            ae = ModifiedIterativeAmplitudeEstimation(
+                epsilon_target=epsilon, alpha=alpha, quantum_instance=qi)
+            self.result = ae.estimate(self.problem, shots=shots)
         return self.result
     
     def process_results(self):
