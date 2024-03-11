@@ -87,7 +87,7 @@ class OptionPricing():
         self.strike_prices = options_params.strike_prices
         self.define_uncertainty_model(options_params)
         # self._define_payoff_function(options_params.option_type, options_params.strike_prices)
-        # self.option_type = options_params.option_type
+        self.option_type = options_params.option_type
     
     def define_uncertainty_model(self, option_params: OptionParams):
         self.all_variables = option_params.individual_params
