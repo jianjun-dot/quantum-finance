@@ -213,7 +213,6 @@ class EstimationProblem:
 
         return problem
 
-
 def _rescale_amplitudes(circuit: QuantumCircuit, scaling_factor: float) -> QuantumCircuit:
     r"""Uses an auxiliary qubit to scale the amplitude of :math:`|1\rangle` by ``scaling_factor``.
 

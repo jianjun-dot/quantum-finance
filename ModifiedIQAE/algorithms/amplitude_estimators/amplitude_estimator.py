@@ -33,7 +33,6 @@ class AmplitudeEstimator:
         """
         raise NotImplementedError
 
-
 class AmplitudeEstimatorResult(AlgorithmResult):
     """The results object for amplitude estimation algorithms."""
 

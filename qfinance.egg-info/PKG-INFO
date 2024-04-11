@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: qfinance
+Version: 0.1.0
+Summary: option pricing with QAE
+Author: Chen Jianjun
+Author-email: chen1554@e.ntu.edu.sg
+License: LICENSE.txt
+License-File: LICENSE
+Requires-Dist: ipython==8.12.3
+Requires-Dist: matplotlib==3.8.2
+Requires-Dist: numpy==1.26.4
+Requires-Dist: pandas==2.2.1
+Requires-Dist: PyYAML==6.0.1
+Requires-Dist: qiskit==0.46.0
+Requires-Dist: qiskit_aer==0.13.3
+Requires-Dist: qiskit_algorithms==0.2.2
+Requires-Dist: qiskit_finance==0.4.0
+Requires-Dist: qiskit_machine_learning==0.7.2
+Requires-Dist: qiskit_terra==0.46.0
+Requires-Dist: scipy==1.12.0
+Requires-Dist: torch==2.2.1+cu118
+Requires-Dist: tqdm==4.66.2
+
+# quantum-finance
+Code repository for explorations in IQAE and its applications

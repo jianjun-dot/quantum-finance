@@ -5,40 +5,60 @@ from qiskit import (
     QuantumRegister,
     AncillaRegister,
 )
-from qiskit.circuit.library import VBERippleCarryAdder
+from qiskit.circuit.library import DraperQFTAdder
 from qiskit.circuit.library import LinearAmplitudeFunction
 from qiskit_algorithms import EstimationProblem
-from qiskit_algorithms import IterativeAmplitudeEstimation
 from qiskit_aer.primitives import Sampler
 
+from qiskit_aer.primitives import Sampler
+from ModifiedIQAE.algorithms.amplitude_estimators.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
+from qfinance.utils.tools import results_to_JSON, save_JSON, save_meta_data, time_convert
+from qfinance.qArithmetic import oneIncrement
+from qfinance.helper import define_covariance_matrix
+
 from datetime import datetime
-import csv
-import json
+from time import time
 from tqdm.auto import tqdm
 
-############
-n_trials = 10
-#########
-##### call
-# strike_prices = [0.01, 0.03]
-strike_prices = [0.01, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2]
-# correction_ratio = [0.45699766,  0.29203295, -0.06446088, -0.10473188,  0.03728036,  0.00996379, 0.07142962,  0.64954655,  5.47081125]
 
 # Get the current date and time
 current_datetime = datetime.now()
-
 # Convert to string using strftime
-date_time_string = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
+date = current_datetime.strftime("%Y-%m-%d")
+time_string = current_datetime.strftime("%H:%M:%S")
+print("Starting at: ", date, time_string)
 
+
+
+ ############# set asset parameters ##############
 num_uncertainty_qubits = 3
-num_qubits_for_each_dimension = num_uncertainty_qubits + 1
-
+###########################
 # parameters for considered random distribution
-S = 0.5  # initial spot price
+strike_name= "spread_call"
+S = 2.0  # initial spot price
 vol = 0.4  # volatility of 40%
 r = 0.04  # annual interest rate of 4%
 T = 40 / 365  # 40 days to maturity
+###########################
+correlation = 0.2
+###########################
+c_approx = 0.05
+epsilon = 0.001
+alpha = 0.005
+n_trials = 5
+n_steps = 10
+N_shots = 1000
+use_GPU = True
+#########
 
+
+##### call
+# strike_prices = [0.01, 0.03]
+# strike_prices = [0.01, 0.025, 0.05, 0.075, 0.1, 0.125, 0.15, 0.175, 0.2]
+
+strike_prices = [0.01, 0.015, 0.02, 0.025, 0.03, 0.035,0.04, 0.045,0.05, 0.055]
+
+num_qubits_for_each_dimension = num_uncertainty_qubits + 1
 # resulting parameters for log-normal distribution
 mu = (r - 0.5 * vol**2) * T + np.log(S)
 sigma = vol * np.sqrt(T)
@@ -46,11 +66,9 @@ mean = np.exp(mu + sigma**2 / 2)
 variance = (np.exp(sigma**2) - 1) * np.exp(2 * mu + sigma**2)
 stddev = np.sqrt(variance)
 
-
 # lowest and highest value considered for the spot price; in between, an equidistant discretization is considered.
 low = 0
 high = mean + 3 * stddev
-
 # map to higher dimensional distribution
 # for simplicity assuming dimensions are independent and identically distributed)
 dimension = 2
@@ -58,7 +76,7 @@ num_qubits = [num_uncertainty_qubits] * dimension
 low = low * np.ones(dimension)
 high = high * np.ones(dimension)
 mu = mu * np.ones(dimension)
-cov = sigma**2 * np.eye(dimension)  # covariance matrix
+cov = define_covariance_matrix(sigma**2, sigma**2, correlation)
 
 # construct circuit
 u = LogNormalDistribution(
@@ -67,29 +85,11 @@ u = LogNormalDistribution(
 
 low_ = low[0]
 high_ = high[0]
-step = high_/7
+step = high_/(2**num_uncertainty_qubits-1)
 
-def define_spread_option(strike_price, index):
-    # set the strike price (should be within the low and the high value of the uncertainty)
-    # map strike price from [low, high] to {0, ..., 2^n-1}
-
-    mapped_strike_price = (
-        (
-            (strike_price - low_)
-            / (high_ - low_)
-            * (2 ** (num_qubits_for_each_dimension) - 1)
-        )
-        + 2 ** (num_uncertainty_qubits)
-        - 1
-    )
-
-    # print("mapped strike price: {}".format(mapped_strike_price))
-    # mapped_strike_price = mapped_strike_price * (1-correction_ratio[index])
-    # set the approximation scaling for the payoff function
-    c_approx = 0.05
-
+def define_spread_option(strike_price):
     # setup piecewise linear objective fcuntion
-    breakpoints = [-8 *step, strike_price]
+    breakpoints = [-2**num_uncertainty_qubits *step, strike_price]
     slopes = [0, 1]
     offsets = [0, 0]
 
@@ -100,73 +100,99 @@ def define_spread_option(strike_price, index):
         num_qubits_for_each_dimension,
         slopes,
         offsets,
-        domain=(-8 *step, high_),
+        domain=(-2**num_uncertainty_qubits *step, high_),
         image=(f_min, f_max),
         rescaling_factor=c_approx,
         breakpoints=breakpoints,
     )
-    return spread_objective, mapped_strike_price
+    return spread_objective
+
+meta_data = {
+    "asset_params":{
+        "asset_name": strike_name,
+        "initial_spot_price": S,
+        "volatility": vol,
+        "annual_interest_rate": r,
+        "days_to_maturity": T,
+        "mu": list(mu),
+        "sigma_T": sigma,
+        "mu_S": mean,
+        "sigma_S": stddev,
+        "num_uncertainty_qubits": num_uncertainty_qubits,
+        "lower_bound": list(low),
+        "upper_bound": list(high),
+        "correlation": correlation,
+    },
+    "date": date,
+    "time": time_string,
+    "expt_params": {
+        "n_trials": n_trials,
+        "epsilon": epsilon,
+        "alpha": alpha,
+        "N_shots": N_shots,
+        "c_approx": c_approx,
+        "use_GPU": use_GPU,
+        "strike_prices": strike_prices,
+        "n_steps": n_steps,
+    }
+}
+save_meta_data(strike_name, date, time_string, meta_data)
 
 
-############# adder
+start_time = time()
 
-firstRegister = QuantumRegister(num_qubits_for_each_dimension, "first")
-secondRegister = QuantumRegister(num_qubits_for_each_dimension, "second")
+firstRegister = QuantumRegister(num_uncertainty_qubits, "first")
+secondRegister = QuantumRegister(num_uncertainty_qubits, "second")
 carryRegister = QuantumRegister(1, "carry")
-ancillaRegister = QuantumRegister(num_qubits_for_each_dimension, "ancilla")
 
-adder = VBERippleCarryAdder(num_qubits_for_each_dimension, name="Adder")
-num_qubits = len(adder.qubits)
+#############
+adder = DraperQFTAdder(num_uncertainty_qubits, kind="half", name="Adder")
 
+sampler = Sampler(run_options={"shots": 1000})
 all_results = {}
 for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
+    all_results[strike_price] = {}
+    ### build subtractor
     circ = QuantumCircuit(
-        carryRegister, firstRegister, secondRegister, ancillaRegister, name="subtractor"
+        firstRegister, secondRegister, carryRegister, name="subtractor"
     )
-    circ.x(secondRegister)
-    circ.x(carryRegister)
-    circ.append(adder, list(range(num_qubits)))
+    circ.x(secondRegister[:]+ carryRegister[:])
+    circ.append(adder, firstRegister[:] + secondRegister[:] + carryRegister[:])
+    circ.append(oneIncrement(num_qubits_for_each_dimension), secondRegister[:]+ carryRegister[:])
+    circ.x(carryRegister[:])
 
-    epsilon = 0.001
-    alpha = 0.005
-
-    spread_objective, mapped_strike_price = define_spread_option(strike_price, index)
+    spread_objective = define_spread_option(strike_price)
     ###### objective
-    firstRegister = QuantumRegister(num_qubits_for_each_dimension, "first")
-    secondRegister = QuantumRegister(num_qubits_for_each_dimension, "second")
+    firstRegister = QuantumRegister(num_uncertainty_qubits, "first")
+    secondRegister = QuantumRegister(num_uncertainty_qubits, "second")
     objectiveRegister = QuantumRegister(1, "obj")
     carryRegister = QuantumRegister(1, "carry")
-    ancillaRegister = AncillaRegister(
-        max(num_qubits_for_each_dimension, spread_objective.num_ancillas), "ancilla"
-    )
     optionAncillaRegister = AncillaRegister(
         spread_objective.num_ancillas, "optionAncilla"
     )
 
     spread_option = QuantumCircuit(
-        carryRegister,
         firstRegister,
         secondRegister,
+        carryRegister,
         objectiveRegister,
-        ancillaRegister,
         optionAncillaRegister,
     )
-    spread_option.append(u, firstRegister[:-1] + secondRegister[:-1])
+    spread_option.append(u, firstRegister[:] + secondRegister[:])
     spread_option.append(
         circ,
-        carryRegister[:] + firstRegister[:] + secondRegister[:] + ancillaRegister[:],
+        firstRegister[:] + secondRegister[:] + carryRegister[:],
     )
-    spread_option.x(secondRegister[-1])
     spread_option.append(
         spread_objective,
-        secondRegister[:] + objectiveRegister[:] + optionAncillaRegister[:],
+        secondRegister[:] + carryRegister[:]+ objectiveRegister[:] + optionAncillaRegister[:],
     )
 
-    objective_index = num_qubits_for_each_dimension
+    objective_index = 2*num_uncertainty_qubits + 1
 
     problem = EstimationProblem(
         state_preparation=spread_option,
-        objective_qubits=[9],
+        objective_qubits=[objective_index],
         post_processing=spread_objective.post_processing,
     )
 
@@ -178,27 +204,23 @@ for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
     )
 
     all_conf_ints = []
+    # qi = QuantumInstance(backend=AerSimulator(), shots=1000)
     for i in tqdm(range(n_trials), leave=False):
-        ae = IterativeAmplitudeEstimation(
-            epsilon_target=epsilon,
-            alpha=alpha,
-            sampler=Sampler(run_options={"shots": 50000}),
-        )
-        # construct amplitude estimation
-        result = ae.estimate(problem)
-
+        ae = ModifiedIterativeAmplitudeEstimation(
+            epsilon_target=epsilon, alpha=alpha, sampler=sampler)
+        result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
         all_conf_ints.append(
             [exact_value, result.estimation_processed, result.confidence_interval_processed[0], result.confidence_interval_processed[1]]
         )
-        # print("Exact value:        \t%.4f" % exact_value)
-        # print("Estimated value:    \t%.4f" % (estimated_value))
-    all_results[strike_price] = {"results": all_conf_ints}
+        all_results[strike_price]["test_{}_full_results".format(i)] = results_to_JSON(result)
+    all_results[strike_price]["results"] = all_conf_ints
 
+save_JSON(strike_name, date, time_string,all_results)
+stop_time = time()
+stop_date_time = datetime.now()
 
-with open("spread_call_test_{}.json".format(date_time_string), "w") as file:
-    json.dump(all_results, file)
+meta_data["execution_time"] = time_convert(stop_time - start_time)
+save_meta_data(strike_name, date, time_string, meta_data)
 
-# with open("spread_call_test_{}.csv".format(date_time_string), "a", newline="") as csvfile:
-#     writer = csv.writer(csvfile, delimiter=",")
-#     for conf_int in all_conf_ints:
-#         writer.writerow([exact_value, conf_int[0], conf_int[1], conf_int[2]])
+print("Ended at: ", stop_date_time.strftime("%Y-%m-%d"), stop_date_time.strftime("%H:%M:%S"))
+print(f"Execution time: {time_convert(stop_time - start_time)}")

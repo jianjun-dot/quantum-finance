@@ -381,17 +381,12 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                             N = min(round_shots + shots, shots_i_max)
 
                             shots = N - round_shots
-                            
-                            # if self._sampler:
-                            #     self._sampler_shots = N - round_shots
                             if self._quantum_instance:
                                 self._quantum_instance._run_config.shots = N - round_shots
                             
                             round_shots = N
                         # If late...
                         else:
-                            # if self._sampler:
-                            #     self._sampler_shots = 1
                             if self._quantum_instance:
                                 self._quantum_instance._run_config.shots = 1
 
@@ -417,23 +412,6 @@ class ModifiedIterativeAmplitudeEstimation(AmplitudeEstimator):
                         print('N - round_shots:', shots)
                 
                     ## run measurements for Q^k A|0> 
-                    
-                    # if self._sampler:
-                    #     circuit = self.construct_circuit(estimation_problem, k, measurement=True)
-                    #     ret = self._sampler.run([circuit], shots=self._sampler_shots).result()
-                    #     print(ret)
-                    #     quasi_dist = ret.quasi_dists[0]
-                    #     print(quasi_dist)
-                    #     counts = {}
-                    #     for key, value in quasi_dist.items():
-                    #         counts[bin(int(key))[2:].zfill(circuit.num_qubits)] = int(value*self._sampler_shots)
-                        
-                    #     # calculate the probability of measuring '1', 'prob' is a_i in the paper
-                    #     num_qubits = circuit.num_qubits - circuit.num_ancillas
-                    #     # type: ignore
-                    #     one_counts, _ = self._good_state_probability(
-                    #         estimation_problem, counts, num_qubits
-                    #     )
                         
                     if self._quantum_instance:
                         circuit = self.construct_circuit(estimation_problem, k, measurement=True)

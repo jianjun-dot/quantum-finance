@@ -1,9 +1,9 @@
 
 import numpy as np
-from package.option_pricing import OptionParams
+from qfinance.option_pricing import OptionParams
 from typing import Union
 import json
-from package.option_pricing import OptionPricing, OptionParams
+from qfinance.option_pricing import OptionPricing, OptionParams
 from datetime import datetime
 
 class tester_params():
