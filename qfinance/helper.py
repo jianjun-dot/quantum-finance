@@ -42,3 +42,4 @@ def define_covariance_matrix(first_var, second_var, correlation=0.5):
         ]
     )
     return covariance_matrix
+

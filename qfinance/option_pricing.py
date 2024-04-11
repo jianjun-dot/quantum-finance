@@ -9,11 +9,11 @@ from qiskit.circuit.library import (
 )
 from qiskit_aer.primitives import Sampler
 from qiskit_finance.circuit.library import LogNormalDistribution
-from ModifiedIQAE.algorithms.amplitude_estimators.mod_iae_updated import (
+from qfinance.ModifiedIQAE.mod_iae_updated import (
     ModifiedIterativeAmplitudeEstimation,
 )
 from typing import List, Union
-from .qArithmetic import QComp, subtractorVBE, subtractorDraper
+from .qArithmetic import QComp, subtractorDraper
 from .helper import loadNumber
 from .helper import define_covariance_matrix
 
@@ -43,6 +43,16 @@ class OptionParams:
         self.num_uncertainty_qubits = num_uncertainty_qubits
         self.strike_prices = None
         self.option_type = option_type
+    
+    def __str__(self):
+        #enumerate all self variables
+        return str({
+            "individual_params": self.individual_params,
+            "cov": self.cov,
+            "num_uncertainty_qubits": self.num_uncertainty_qubits,
+            "strike_prices": self.strike_prices,
+            "option_type": self.option_type
+        })
 
     def set_strike_prices(self, strike_prices: Union[List[float], float]):
         if isinstance(strike_prices, float):
@@ -88,6 +98,7 @@ class OptionParams:
         variable["low"] = low
         variable["high"] = high
         return variable
+    
 
 
 class OptionPricing:
@@ -122,6 +133,8 @@ class OptionPricing:
             self.num_dist_qubits = [self.num_uncertainty_qubits] * self.dimension
             lower_bound = np.array([var["low"] for var in self.all_variables])
             upper_bound = np.array([var["high"] for var in self.all_variables])
+            lower_bound = [np.min(lower_bound)] * self.dimension
+            upper_bound = [np.max(upper_bound)] * self.dimension
             mu = np.array([var["mu"] for var in self.all_variables])
             if option_params.cov is None:
                 cov = np.diag([var["sigma"] ** 2 for var in self.all_variables])
@@ -308,9 +321,9 @@ class OptionPricing:
         self.post_processor = self.objective.post_processing
 
     def _define_call_on_max_options(self, strike_price: float, c_approx=0.1):
-        params = self.options_params.individual_params[0]
-        self.high = params["high"]
-        self.low = params["low"]
+        # params = self.options_params.individual_params[0]
+        self.high = self.upper_bound[0]
+        self.low = self.lower_bound[0]
         self.strike_price = strike_price
 
         breakpoints = [self.low, strike_price]
@@ -400,9 +413,9 @@ class OptionPricing:
         self.post_processor = self.objective.post_processing
 
     def _define_call_on_min_options(self, strike_price: float, c_approx=0.125):
-        params = self.options_params.individual_params[0]
-        self.high = params["high"]
-        self.low = params["low"]
+        
+        self.high = self.upper_bound[0]
+        self.low = self.lower_bound[0]
         self.strike_price = strike_price
 
         breakpoints = [self.low, strike_price]

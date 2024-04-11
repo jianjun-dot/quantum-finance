@@ -16,7 +16,8 @@ def results_to_JSON(result):
     return result_JSON
 
 def save_meta_data(strike_name: str, date: str, time:str, meta_data={}):
-    new_directory = "data/"+ date + "/" + strike_name + "/"
+    cwd = os.getcwd()
+    new_directory = cwd + "/data/"+ date + "/" + strike_name + "/"
     try:
         os.makedirs(new_directory, exist_ok=True)
         print(f"Directory '{new_directory}' created successfully.")
@@ -30,7 +31,8 @@ def save_meta_data(strike_name: str, date: str, time:str, meta_data={}):
         json.dump(meta_data, f)
 
 def save_JSON(strike_name: str, date: str, time:str, data: dict):
-    new_directory = "data/"+ date + "/" + strike_name + "/"
+    cwd = os.getcwd()
+    new_directory = cwd+ "/data/"+ date + "/" + strike_name + "/"
     try:
         os.makedirs(new_directory, exist_ok=True)
         print(f"Directory '{new_directory}' created successfully.")
