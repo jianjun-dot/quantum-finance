@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+import torch
 
 def results_to_JSON(result):
     result_JSON = {}
@@ -58,3 +59,6 @@ def time_convert(sec):
         return "{:0>2}m:{:05.2f}s".format(int(minutes),sec)
     else:
         return "{:05.2f}s".format(sec)
+    
+def check_gpu_availability():
+    return torch.cuda.is_available()

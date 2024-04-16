@@ -1,3 +1,13 @@
+"""
+This is a modification of Qiskit quantum machine learning tutorial code, with the following license:
+#
+# (C) Copyright IBM 2020, 2021.
+#
+# This code is licensed under the Apache License, Version 2.0. You may
+# obtain a copy of this license in the LICENSE.txt file in the root directory
+# of this source tree or at http://www.apache.org/licenses/LICENSE-2.0.
+"""
+
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import EfficientSU2, TwoLocal
 from qiskit.primitives import Sampler
@@ -139,9 +149,7 @@ class DistributionCircuitTrainer():
         self.discriminator = discrimator
 
     def binary_cross_entropy_loss(self, input: torch.Tensor, target: torch.Tensor, weight: torch.Tensor) -> float:
-        # print(input.shape, target.shape, weight.shape)
         bce_loss = target * torch.log(input) + (1 - target) * torch.log(1 - input)
-        # print("bce_loss: ", bce_loss )
         weighted_loss = weight * bce_loss
         total_loss = -torch.sum(weighted_loss)
         return total_loss

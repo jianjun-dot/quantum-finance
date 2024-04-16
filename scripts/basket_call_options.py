@@ -14,7 +14,6 @@ from qfinance.helper import define_covariance_matrix
 
 from time import time
 from datetime import datetime
-import json
 from tqdm.auto import tqdm
 
 from qfinance.utils.tools import results_to_JSON, save_JSON, save_meta_data, time_convert

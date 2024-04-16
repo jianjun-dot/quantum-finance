@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister
+from qiskit.circuit import Gate
 from qiskit_algorithms import IterativeAmplitudeEstimation, EstimationProblem
 from qiskit.circuit.library import (
     LinearAmplitudeFunction,
@@ -12,7 +13,8 @@ from qiskit_finance.circuit.library import LogNormalDistribution
 from qfinance.ModifiedIQAE.mod_iae_updated import (
     ModifiedIterativeAmplitudeEstimation,
 )
-from typing import List, Union
+from qfinance.ModifiedIQAE.amplitude_estimator import AmplitudeEstimatorResult
+from typing import List, Union, Tuple, Callable
 from .qArithmetic import QComp, subtractorDraper
 from .helper import loadNumber
 from .helper import define_covariance_matrix
@@ -43,16 +45,18 @@ class OptionParams:
         self.num_uncertainty_qubits = num_uncertainty_qubits
         self.strike_prices = None
         self.option_type = option_type
-    
+
     def __str__(self):
-        #enumerate all self variables
-        return str({
-            "individual_params": self.individual_params,
-            "cov": self.cov,
-            "num_uncertainty_qubits": self.num_uncertainty_qubits,
-            "strike_prices": self.strike_prices,
-            "option_type": self.option_type
-        })
+        # enumerate all self variables
+        return str(
+            {
+                "individual_params": self.individual_params,
+                "cov": self.cov,
+                "num_uncertainty_qubits": self.num_uncertainty_qubits,
+                "strike_prices": self.strike_prices,
+                "option_type": self.option_type,
+            }
+        )
 
     def set_strike_prices(self, strike_prices: Union[List[float], float]):
         if isinstance(strike_prices, float):
@@ -98,12 +102,11 @@ class OptionParams:
         variable["low"] = low
         variable["high"] = high
         return variable
-    
 
 
 class OptionPricing:
 
-    def __init__(self, options_params: OptionParams):
+    def __init__(self, options_params: OptionParams) -> None:
         self.num_variables = len(options_params.individual_params)
         self.num_uncertainty_qubits = options_params.num_uncertainty_qubits
         self.options_params = options_params
@@ -111,11 +114,12 @@ class OptionPricing:
         self.option = None
         self.objective = None
         self.strike_price = options_params.strike_prices
+        self.discount_factor = np.exp(-options_params.individual_params[0]["r"]*options_params.individual_params[0]["T"])
         self.define_uncertainty_model(options_params)
         # self._define_payoff_function(options_params.option_type, options_params.strike_prices)
         self.option_type = options_params.option_type
 
-    def define_uncertainty_model(self, option_params: OptionParams):
+    def define_uncertainty_model(self, option_params: OptionParams) -> None:
         self.all_variables = option_params.individual_params
         self.dimension = len(self.all_variables)
         if self.dimension == 1:
@@ -152,7 +156,7 @@ class OptionPricing:
 
     def _define_payoff_function(
         self, option_type: str, strike_price: list[float], c_approx=0.125
-    ):
+    ) -> None:
         if option_type == "call":
             strike_price = strike_price[0]
             self._define_basic_call_options(strike_price, c_approx)
@@ -173,7 +177,7 @@ class OptionPricing:
         else:
             raise Exception("Option type not defined!")
 
-    def _define_basic_call_options(self, strike_price: float, c_approx=0.1):
+    def _define_basic_call_options(self, strike_price: float, c_approx=0.1) -> None:
         params = self.options_params.individual_params[0]
 
         self.high = params["high"]
@@ -206,7 +210,7 @@ class OptionPricing:
         self.option = circuit
         self.post_processor = self.objective.post_processing
 
-    def _define_basket_call_options(self, strike_price: float, c_approx=0.1):
+    def _define_basket_call_options(self, strike_price: float, c_approx=0.1) -> None:
         self.low = self.lower_bound[0]
         self.high = self.upper_bound[0]
         adder = DraperQFTAdder(self.num_uncertainty_qubits, kind="half", name="Adder")
@@ -254,7 +258,7 @@ class OptionPricing:
         self.option = basket_option
         self.post_processor = self.objective.post_processing
 
-    def _define_spread_call_options(self, strike_price: float, c_approx=0.01):
+    def _define_spread_call_options(self, strike_price: float, c_approx=0.01) -> None:
 
         params = self.options_params.individual_params[0]
         num_qubits_for_each_dimension = self.num_uncertainty_qubits + 1
@@ -302,16 +306,16 @@ class OptionPricing:
             self.uncertainty_model, firstRegister[:] + secondRegister[:]
         )
         spread_option.append(
-            subtract_circuit,
-            firstRegister[:]
-            + secondRegister[:]
-            + carryRegister[:]
+            subtract_circuit, firstRegister[:] + secondRegister[:] + carryRegister[:]
         )
         spread_option.x(carryRegister[:])
 
         spread_option.append(
             spread_objective,
-            secondRegister[:] + carryRegister[:]+objectiveRegister[:] + optionAncillaRegister[:],
+            secondRegister[:]
+            + carryRegister[:]
+            + objectiveRegister[:]
+            + optionAncillaRegister[:],
         )
         objective_index = self.num_uncertainty_qubits * 2 + 1
 
@@ -320,7 +324,7 @@ class OptionPricing:
         self.option = spread_option
         self.post_processor = self.objective.post_processing
 
-    def _define_call_on_max_options(self, strike_price: float, c_approx=0.1):
+    def _define_call_on_max_options(self, strike_price: float, c_approx=0.1) -> None:
         # params = self.options_params.individual_params[0]
         self.high = self.upper_bound[0]
         self.low = self.lower_bound[0]
@@ -412,8 +416,8 @@ class OptionPricing:
         self.option = circuit
         self.post_processor = self.objective.post_processing
 
-    def _define_call_on_min_options(self, strike_price: float, c_approx=0.125):
-        
+    def _define_call_on_min_options(self, strike_price: float, c_approx=0.1) -> None:
+
         self.high = self.upper_bound[0]
         self.low = self.lower_bound[0]
         self.strike_price = strike_price
@@ -503,20 +507,20 @@ class OptionPricing:
         self.option = circuit
         self.post_processor = self.objective.post_processing
 
-    def _define_best_of_call_options(self, c_approx=0.01):
+    def _define_best_of_call_options(self, strike_prices: float, c_approx=0.01) -> None:
         optionConstructor = BestOfCallPricer(self.num_uncertainty_qubits)
         circuit, post_processor = optionConstructor.construct_circuit(
-            self.options_params.strike_prices,
+            strike_prices,
             self.uncertainty_model,
-            self.high,
-            self.low,
+            self.upper_bound[0],
+            self.lower_bound[0],
             c_approx=c_approx,
         )
         self.option = circuit
-        self.objective_index = self.uncertainty_model.num_qubits - 1
+        self.objective_index = circuit.num_qubits - 1
         self.post_processor = post_processor
 
-    def create_state_prep_circuit(self):
+    def create_state_prep_circuit(self) -> QuantumCircuit:
         num_qubits = self.objective.num_qubits
         circuit = QuantumCircuit(num_qubits)
         circuit.append(self.uncertainty_model, range(self.uncertainty_model.num_qubits))
@@ -525,7 +529,7 @@ class OptionPricing:
         self.option = circuit
         return circuit
 
-    def create_estimation_problem(self, epsilon=0.01):
+    def create_estimation_problem(self, epsilon=0.01) -> EstimationProblem:
         scaling_param = np.sqrt(epsilon)
         self._define_payoff_function(
             self.options_params.option_type,
@@ -547,8 +551,11 @@ class OptionPricing:
             objective_qubits=[self.objective_index],
             post_processing=self.post_processor,
         )
+        return self.problem
 
-    def run(self, epsilon=0.01, alpha=0.05, shots=100, method="MIQAE"):
+    def run(
+        self, epsilon=0.01, alpha=0.05, shots=100, method="MIQAE"
+    ) -> AmplitudeEstimatorResult:
         # construct amplitude estimation
         if method == "IQAE":
             ae = IterativeAmplitudeEstimation(
@@ -566,38 +573,39 @@ class OptionPricing:
             self.result = ae.estimate(self.problem, shots=shots)
         return self.result
 
-    def process_results(self):
+    def process_results(self) -> Tuple[float, np.ndarray]:
         conf_int = np.array(self.result.confidence_interval_processed)
         estimated_value = self.result.estimation_processed
+        # apply discount
+        estimated_value *= self.discount_factor
+        conf_int *= self.discount_factor
         return estimated_value, conf_int
 
-    def compute_exact_expectation(self):
+    def compute_exact_expectation(self) -> float:
         if self.option_type == "call":
             exact_value = self._compute_exact_call_expectation()
-            return exact_value
         elif self.option_type == "basket call":
             exact_value = self._compute_exact_basket_call_expectation()
-            return exact_value
         elif self.option_type == "spread call":
             exact_value = self._compute_exact_spread_call_expectation()
-            return exact_value
         elif self.option_type == "call-on-max":
             exact_value = self._compute_exact_call_on_max_expectation()
-            return exact_value
         elif self.option_type == "call-on-min":
             exact_value = self._compute_exact_call_on_min_expectation()
-            return exact_value
         elif self.option_type == "best-of-call":
-            self.objective = self._compute_exact_best_of_call_expectation()
+            exact_value = self._compute_exact_best_of_call_expectation()
         else:
             raise Exception("Option type not defined!")
+        # apply discount
+        exact_value *= self.discount_factor
+        return exact_value
 
-    def _compute_exact_call_expectation(self):
+    def _compute_exact_call_expectation(self) -> float:
         payoff = np.maximum(self.uncertainty_model.values - self.strike_price, 0)
         expected_value = np.dot(self.uncertainty_model.probabilities, payoff)
         return expected_value
 
-    def _compute_exact_basket_call_expectation(self):
+    def _compute_exact_basket_call_expectation(self) -> float:
         sum_values = np.sum(self.uncertainty_model.values, axis=1)
         expected_value = np.dot(
             self.uncertainty_model.probabilities[sum_values >= self.strike_price],
@@ -605,7 +613,7 @@ class OptionPricing:
         )
         return expected_value
 
-    def _compute_exact_spread_call_expectation(self):
+    def _compute_exact_spread_call_expectation(self) -> float:
         diff_values = np.array([v[0] - v[1] for v in self.uncertainty_model.values])
 
         exact_value = np.dot(
@@ -615,7 +623,7 @@ class OptionPricing:
 
         return exact_value
 
-    def _compute_exact_call_on_max_expectation(self):
+    def _compute_exact_call_on_max_expectation(self) -> float:
         exact_value = 0
         for i in range(len(self.uncertainty_model.probabilities)):
             exact_value += self.uncertainty_model.probabilities[i] * max(
@@ -628,7 +636,7 @@ class OptionPricing:
             )
         return exact_value
 
-    def _compute_exact_call_on_min_expectation(self):
+    def _compute_exact_call_on_min_expectation(self) -> float:
         exact_value = 0
         for i in range(len(self.uncertainty_model.probabilities)):
             exact_value += self.uncertainty_model.probabilities[i] * max(
@@ -641,7 +649,7 @@ class OptionPricing:
             )
         return exact_value
 
-    def _compute_exact_best_of_call_expectation(self):
+    def _compute_exact_best_of_call_expectation(self) -> float:
         strike_price_1, strike_price_2 = self.strike_price
         curr_exact_expectation = 0
         for i in range(len(self.uncertainty_model.probabilities)):
@@ -650,13 +658,16 @@ class OptionPricing:
                 self.uncertainty_model.values[i][0] - strike_price_1,
                 self.uncertainty_model.values[i][1] - strike_price_2,
             )
+        return curr_exact_expectation
 
-    def estimate_expectation(self, epsilon=0.01, alpha=0.05, shots=100):
+    def estimate_expectation(
+        self, epsilon=0.01, alpha=0.05, shots=100
+    ) -> Tuple[float, np.ndarray]:
         self.create_estimation_problem(epsilon)
         self.run(epsilon, alpha, shots)
         return self.process_results()
 
-    def get_num_oracle_calls(self):
+    def get_num_oracle_calls(self) -> int:
         return self.result.num_oracle_queries
 
 
@@ -664,19 +675,28 @@ class BestOfCallPricer:
     def __init__(self, num_uncertainty_qubits: int):
         self.num_uncertainty_qubits = num_uncertainty_qubits
 
-    def _map_strike_price_int(self, strike_price, high, low, num_uncertainty_qubits):
+    def _map_strike_price_int(
+        self, strike_price: float, high: float, low: float, num_uncertainty_qubits: int
+    ) -> float:
         return int(
             np.ceil(
                 (strike_price - low) / (high - low) * (2**num_uncertainty_qubits - 1)
             )
         )
 
-    def _map_strike_price_float(self, strike_price, high, low, num_uncertainty_qubits):
+    def _map_strike_price_float(
+        self, strike_price: float, high: float, low: float, num_uncertainty_qubits: int
+    ) -> float:
         return (strike_price - low) / (high - low) * (2**num_uncertainty_qubits - 1)
 
     def objective_function(
-        self, num_uncertainty_qubits, strike_price, high, low, c_approx=0.01
-    ):
+        self,
+        num_uncertainty_qubits: int,
+        strike_price: float,
+        high: float,
+        low: float,
+        c_approx=0.01,
+    ) -> Tuple[Gate, Callable, float]:
         model_register = QuantumRegister(num_uncertainty_qubits, "model")
         objective_register = QuantumRegister(1, "objective")
 
@@ -707,13 +727,13 @@ class BestOfCallPricer:
 
     def objective_function_two_strike(
         self,
-        num_uncertainty_qubits,
-        strike_price_1,
-        strike_price_2,
-        high,
-        low,
+        num_uncertainty_qubits: int,
+        strike_price_1: float,
+        strike_price_2: float,
+        high: float,
+        low: float,
         c_approx=0.01,
-    ):
+    ) -> Tuple[Gate, Gate, Callable, float]:
 
         # map strike prices
         mapped_strike_price_1_float = self._map_strike_price_float(
@@ -775,8 +795,13 @@ class BestOfCallPricer:
         )
 
     def construct_circuit(
-        self, strike_prices: List[float], uncertainty_model, high, low, c_approx=0.01
-    ):
+        self,
+        strike_prices: List[float],
+        uncertainty_model: LogNormalDistribution,
+        high: float,
+        low: float,
+        c_approx=0.01,
+    ) -> Tuple[QuantumCircuit, Callable]:
         first_var_register = QuantumRegister(self.num_uncertainty_qubits, "var1")
         first_ancilla_register = QuantumRegister(
             self.num_uncertainty_qubits, "ancilla1"
@@ -812,6 +837,8 @@ class BestOfCallPricer:
                 self.num_uncertainty_qubits,
                 strike_prices[0],
                 strike_prices[1],
+                high,
+                low,
                 c_approx,
             )
         )
@@ -894,7 +921,9 @@ class BestOfCallPricer:
         )
         return circuit, post_processor
 
-    def create_estimation_problem(self, circuit, objective_qubit, post_processor):
+    def create_estimation_problem(
+        self, circuit: QuantumCircuit, objective_qubit: int, post_processor: Callable
+    ) -> EstimationProblem:
         self.problem = EstimationProblem(
             state_preparation=circuit,
             objective_qubits=[objective_qubit],

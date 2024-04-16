@@ -3,14 +3,12 @@ from qiskit_aer.primitives import Sampler
 from qiskit_algorithms import EstimationProblem, MaximumLikelihoodAmplitudeEstimation
 from qiskit import QuantumRegister, QuantumCircuit
 from qiskit.circuit.library import DraperQFTAdder
-from qiskit import Aer
 import numpy as np
 from time import time
 from datetime import datetime
 from tqdm.auto import tqdm
 
 from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
-
 from qfinance.helper import define_covariance_matrix, loadNumber
 from qfinance.qArithmetic import QComp
 from qfinance.qArithmetic import subtractorDraper
@@ -37,9 +35,9 @@ T = 40 / 365  # 40 days to maturity
 correlation = 0.2
 ###############
 c_approx = 0.01
-epsilon = 0.0003
+epsilon = 0.0005
 alpha = 0.005
-n_trials = 3
+n_trials = 5
 n_steps = 10
 N_shots = 1000
 use_GPU = True

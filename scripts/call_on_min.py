@@ -17,7 +17,6 @@ from qiskit_aer.primitives import Sampler
 from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
 
 from datetime import datetime
-import json
 from tqdm.auto import tqdm
 from time import time
 
