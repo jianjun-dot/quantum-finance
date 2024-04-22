@@ -1,12 +1,11 @@
 from qiskit_finance.circuit.library import LogNormalDistribution
 from qiskit_aer.primitives import Sampler
-from qiskit_algorithms import EstimationProblem, MaximumLikelihoodAmplitudeEstimation
+from qiskit_algorithms import EstimationProblem
 from qiskit import QuantumRegister, QuantumCircuit
 from qiskit.circuit.library import DraperQFTAdder
 import numpy as np
 from time import time
 from datetime import datetime
-from tqdm.auto import tqdm
 
 from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
 from qfinance.helper import define_covariance_matrix, loadNumber
@@ -41,6 +40,7 @@ n_trials = 5
 n_steps = 10
 N_shots = 1000
 use_GPU = True
+discount = True
 ###############
 
 # resulting parameters for log-normal distribution
@@ -66,7 +66,7 @@ cov = define_covariance_matrix(sigma**2, sigma**2, correlation)
 strike_prices = [round(step/n_steps * (2*stddev) + mean - stddev, 2) for step in range(n_steps)]
 # construct circuit
 uncertainty_model = LogNormalDistribution(num_qubits=num_qubits, mu=mu, sigma=cov, bounds=list(zip(low, high)))
-
+discount_factor = np.exp(-r * T)
 # lowest and highest value considered for the spot price; in between, an equidistant discretization is considered.
 low = np.maximum(0, mean - 3 * stddev)
 high = mean + 3 * stddev
@@ -300,7 +300,14 @@ for (index1, strike_price_1) in enumerate(strike_prices):
         ae = ModifiedIterativeAmplitudeEstimation(
             epsilon_target=epsilon, alpha=alpha, sampler=sampler)
         result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
-        curr_results = [curr_exact_expectation, result.estimation_processed, result.confidence_interval_processed[0], result.confidence_interval_processed[1], result.num_oracle_queries]
+        conf_int = list(result.confidence_interval_processed)
+        curr_estimate = result.estimation_processed
+        if discount:
+            curr_exact_expectation *= discount_factor
+            curr_estimate *= discount_factor
+            conf_int[0] *= discount_factor
+            conf_int[1] *= discount_factor
+        curr_results = [curr_exact_expectation, curr_estimate, conf_int[0], conf_int[1], result.num_oracle_queries]
         all_key_results.append(curr_results)
         curr_dict[strike_price_2]["test_{}_full_results".format(i)] = results_to_JSON(result)
     curr_dict[strike_price_2]["results"] = all_key_results
@@ -427,7 +434,14 @@ for (index2, strike_price_2) in enumerate(strike_prices):
         ae = ModifiedIterativeAmplitudeEstimation(
             epsilon_target=epsilon, alpha=alpha, sampler=sampler)
         result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
-        curr_results = [curr_exact_expectation, result.estimation_processed, result.confidence_interval_processed[0], result.confidence_interval_processed[1], result.num_oracle_queries]
+        conf_int = list(result.confidence_interval_processed)
+        curr_estimate = result.estimation_processed
+        if discount:
+            curr_exact_expectation *= discount_factor
+            curr_estimate *= discount_factor
+            conf_int[0] *= discount_factor
+            conf_int[1] *= discount_factor
+        curr_results = [curr_exact_expectation, curr_estimate, conf_int[0], conf_int[1], result.num_oracle_queries]
         all_key_results.append(curr_results)
         curr_dict[strike_price_2]["test_{}_full_results".format(i)] = results_to_JSON(result)
     curr_dict[strike_price_2]["results"] = all_key_results

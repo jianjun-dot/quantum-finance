@@ -44,6 +44,7 @@ def main():
     n_trials = 1 # number of independent evaluations of the quantum circuit
     n_step = 10 # number of distinct strike prices to consider
     use_GPU = True # whether to use GPU for the quantum circuit simulation
+    discount = True # whether to discount the payoff
     ##################################################
 
     # resulting parameters for log-normal distribution
@@ -60,7 +61,7 @@ def main():
     uncertainty_model = LogNormalDistribution(
         num_uncertainty_qubits, mu=mu, sigma=sigma**2, bounds=(low, high)
     )
-    
+    discount_factor = np.exp(-r * T)
     strike_prices = [round(step/n_step * (0.9*high-1.1*low) + 1.1*low, 2) for step in range(n_step)]
     
     meta_data = {
@@ -136,19 +137,22 @@ def main():
         )
         estimation_results = []
         for i in tqdm(range(n_trials), leave=False):
-            # qi = QuantumInstance(backend=AerSimulator(), shots=1000)
-            # ae = ModifiedIterativeAmplitudeEstimation(
-            #     epsilon_target=epsilon, alpha=alpha, quantum_instance=qi)
             ae = ModifiedIterativeAmplitudeEstimation(
                 epsilon_target=epsilon, alpha=alpha, sampler=sampler)
             result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
+            conf_int = list(result.confidence_interval_processed)
+            curr_estimate = result.estimation_processed
+            if discount:
+                exact_value *= discount_factor
+                curr_estimate *= discount_factor
+                conf_int[0] *= discount_factor
+                conf_int[1] *= discount_factor
             estimation_results.append(
-                [exact_value, result.estimation_processed, result.confidence_interval_processed[0], result.confidence_interval_processed[1], result.num_oracle_queries]
+                [exact_value, curr_estimate, conf_int[0], conf_int[1], result.num_oracle_queries]
             )
             # print([exact_value, result.estimation_processed, result.confidence_interval_processed[0], result.confidence_interval_processed[1], result.num_oracle_queries])
             all_results[strike_price]["test_{}_full_results".format(i)] = results_to_JSON(result)
         all_results[strike_price]["results"] = estimation_results
-        # print(all_results[strike_price]["results"])
 
     save_JSON(strike_name, date, time_string,all_results)
     stop_time = time()

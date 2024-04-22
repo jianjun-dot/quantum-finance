@@ -47,6 +47,7 @@ n_trials = 5
 n_steps = 10
 N_shots = 1000
 use_GPU = True
+discount = True
 #########
 
 
@@ -77,9 +78,11 @@ mu = mu * np.ones(dimension)
 cov = define_covariance_matrix(sigma**2, sigma**2, correlation)
 
 # construct circuit
-u = LogNormalDistribution(
+uncertainty_model = LogNormalDistribution(
     num_qubits=num_qubits, mu=mu, sigma=cov, bounds=list(zip(low, high))
 )
+
+discount_factor = np.exp(-r * T)
 
 low_ = low[0]
 high_ = high[0]
@@ -197,7 +200,7 @@ for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
     # evaluate exact expected value
     sum_values = np.array([v[0] - v[1] for v in u.values])
     exact_value = np.dot(
-        u.probabilities[sum_values >= strike_price],
+        uncertainty_model.probabilities[sum_values >= strike_price],
         sum_values[sum_values >= strike_price] - strike_price,
     )
 
@@ -207,8 +210,15 @@ for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
         ae = ModifiedIterativeAmplitudeEstimation(
             epsilon_target=epsilon, alpha=alpha, sampler=sampler)
         result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
+        conf_int = list(result.confidence_interval_processed)
+        curr_estimate = result.estimation_processed
+        if discount:
+            exact_value *= discount_factor
+            curr_estimate *= discount_factor
+            conf_int[0] *= discount_factor
+            conf_int[1] *= discount_factor
         all_conf_ints.append(
-            [exact_value, result.estimation_processed, result.confidence_interval_processed[0], result.confidence_interval_processed[1]]
+            [exact_value, curr_estimate, conf_int[0], conf_int[1], result.num_oracle_queries]
         )
         all_results[strike_price]["test_{}_full_results".format(i)] = results_to_JSON(result)
     all_results[strike_price]["results"] = all_conf_ints

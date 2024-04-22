@@ -1,10 +1,20 @@
 # quantum-finance
-Package for `qfinance`.
+Package for `qfinance` used in https://arxiv.org/abs/2301.09241
 
 # Installation
+
 Navigate to the root directory of this package. Use `pip` to install:
 ```bash
 pip install .
+```
+
+The required libraries should be installed with the comment. If it is not, you can install it with the `requirements.txt`:
+```bash
+pip install -r requirements.txt
+```
+If you are using conda, you can create a new `conda` environment with the `environment.yml`:
+```bash
+conda env create -f environment.yml
 ```
 
 # Basic Usage

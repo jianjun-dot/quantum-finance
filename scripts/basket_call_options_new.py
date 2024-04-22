@@ -37,6 +37,7 @@ n_trials = 5
 n_steps = 10
 N_shots = 1000
 use_GPU = True
+discount = True
 #################
 
 # resulting parameters for log-normal distribution
@@ -62,6 +63,7 @@ cov = define_covariance_matrix(sigma**2, sigma**2, correlation)
 
 # construct circuit
 uncertainty_model = LogNormalDistribution(num_qubits=num_qubits, mu=mu, sigma=cov, bounds=list(zip(low, high)))
+discount_factor = np.exp(-r * T)
 # u = NormalDistribution(num_qubits=num_qubits, mu=mu, sigma=cov, bounds=list(zip(low, high)))
 
 adder = DraperQFTAdder(num_uncertainty_qubits, kind="half",name="Adder")
@@ -172,6 +174,11 @@ for (index, strike_price) in enumerate(strike_prices):
         result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
         conf_int = list(result.confidence_interval_processed)
         curr_estimate = result.estimation_processed
+        if discount:
+            exact_value *= discount_factor
+            curr_estimate *= discount_factor
+            conf_int[0] *= discount_factor
+            conf_int[1] *= discount_factor
         all_key_results.append(
             [exact_value, curr_estimate, conf_int[0], conf_int[1], result.num_oracle_queries]
         )

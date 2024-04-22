@@ -48,6 +48,7 @@ n_trials = 2
 n_steps = 10
 N_shots = 1000
 use_GPU = False
+discount = True
 #############################
 
 num_qubits_for_each_dimension = num_uncertainty_qubits + 1
@@ -77,6 +78,8 @@ cov = define_covariance_matrix(sigma**2, sigma**2, correlation)
 uncertainty_model = LogNormalDistribution(
     num_qubits=num_qubits, mu=mu, sigma=cov, bounds=list(zip(low, high))
 )
+
+discount_factor = np.exp(-r * T)
 
 low = np.maximum(0, mean - 3 * stddev)
 high = mean + 3 * stddev
@@ -186,9 +189,15 @@ for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
         ae = ModifiedIterativeAmplitudeEstimation(
             epsilon_target=epsilon, alpha=alpha, sampler=sampler)
         result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
-        
+        conf_int = list(result.confidence_interval_processed)
+        curr_estimate = result.estimation_processed
+        if discount:
+            exact_value *= discount_factor
+            curr_estimate *= discount_factor
+            conf_int[0] *= discount_factor
+            conf_int[1] *= discount_factor
         all_key_results.append(
-            [exact_value, result.estimation_processed, result.confidence_interval_processed[0], result.confidence_interval_processed[1], result.num_oracle_queries]
+            [exact_value, curr_estimate, conf_int[0], conf_int[1], result.num_oracle_queries]
         )
         all_results[strike_price]["test_{}_full_results".format(i)] = results_to_JSON(result)
     all_results[strike_price]["results"] = all_key_results

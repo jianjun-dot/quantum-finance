@@ -42,6 +42,7 @@ n_trials = 3
 n_steps = 10
 N_shots = 1000
 use_GPU = False
+discount = True
 #################
 
 # resulting parameters for log-normal distribution
@@ -68,7 +69,7 @@ cov = define_covariance_matrix(sigma**2, sigma**2, correlation)
 # construct circuit
 uncertainty_model = LogNormalDistribution(num_qubits=num_qubits, mu=mu, sigma=cov, bounds=list(zip(low, high)))
 # u = NormalDistribution(num_qubits=num_qubits, mu=mu, sigma=cov, bounds=list(zip(low, high)))
-
+discount_factor = np.exp(-r * T)
 
 # determine number of qubits required to represent total loss
 weights = []
@@ -191,6 +192,11 @@ for (index, strike_price) in enumerate(strike_prices):
             * (high_ - low_)
         )
         curr_estimate = result.estimation_processed / (2**num_uncertainty_qubits - 1) * (high_ - low_)
+        if discount:
+            exact_value *= discount_factor
+            curr_estimate *= discount_factor
+            conf_int[0] *= discount_factor
+            conf_int[1] *= discount_factor
         all_key_results.append(
             [exact_value, curr_estimate, conf_int[0], conf_int[1], result.num_oracle_queries]
         )
