@@ -1,8 +1,7 @@
-from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+from qiskit import QuantumCircuit, QuantumRegister
 import numpy as np
 from qiskit.quantum_info.operators import Operator
-from qiskit.circuit.library import QFT, MCXGate
-from qiskit.circuit.library import VBERippleCarryAdder, DraperQFTAdder
+from qiskit.circuit.library import QFT, MCXGate, VBERippleCarryAdder, DraperQFTAdder
 
 def rotation(k):
     return np.array([[1, 0], [0, np.exp(2 * np.pi * 1j / 2**k)]])

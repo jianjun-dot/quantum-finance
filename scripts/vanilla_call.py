@@ -9,14 +9,14 @@ from qiskit import QuantumCircuit
 from qiskit_algorithms import EstimationProblem
 from qiskit.circuit.library import LinearAmplitudeFunction
 from qiskit_finance.circuit.library import LogNormalDistribution
+from qiskit_aer.primitives import Sampler
+
 from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
+from qfinance.utils.tools import results_to_JSON, save_JSON, save_meta_data, time_convert
 
 from tqdm.auto import tqdm
 from datetime import datetime
-from qfinance.utils.tools import results_to_JSON, save_JSON, save_meta_data, time_convert
-from qiskit_aer.primitives import Sampler
 from time import time
-import sys
 
 def main():
     

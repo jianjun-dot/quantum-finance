@@ -1,11 +1,9 @@
-import matplotlib.pyplot as plt
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, AncillaRegister
 from qiskit.circuit import Gate
 from qiskit_algorithms import IterativeAmplitudeEstimation, EstimationProblem
 from qiskit.circuit.library import (
     LinearAmplitudeFunction,
-    WeightedAdder,
     DraperQFTAdder,
 )
 from qiskit_aer.primitives import Sampler

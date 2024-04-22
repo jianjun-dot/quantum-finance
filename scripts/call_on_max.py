@@ -1,25 +1,21 @@
 import numpy as np
-from qfinance.helper import define_covariance_matrix
-from qfinance.qArithmetic import QComp
-from tqdm import tqdm
-from datetime import datetime
-
-import numpy as np
 from qiskit_finance.circuit.library import LogNormalDistribution
 from qiskit import (
     QuantumCircuit,
     QuantumRegister,
 )
-from qiskit.circuit.library import DraperQFTAdder
-from qiskit.circuit.library import LinearAmplitudeFunction
+from qiskit.circuit.library import DraperQFTAdder, LinearAmplitudeFunction
 from qiskit_algorithms import EstimationProblem
-from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
 from qiskit_aer.primitives import Sampler
+
 from datetime import datetime
 from time import time
 from tqdm.auto import tqdm
 
+from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
 from qfinance.utils.tools import results_to_JSON, save_JSON, time_convert, save_meta_data
+from qfinance.helper import define_covariance_matrix
+from qfinance.qArithmetic import QComp
 
 # Get the current date and time
 current_datetime = datetime.now()

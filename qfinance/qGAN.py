@@ -9,11 +9,12 @@ This is a modification of Qiskit quantum machine learning tutorial code, with th
 """
 
 from qiskit import QuantumCircuit
+from qiskit.utils import algorithm_globals
 from qiskit.circuit.library import EfficientSU2, TwoLocal
 from qiskit.primitives import Sampler
 from qiskit_machine_learning.connectors import TorchConnector
 from qiskit_machine_learning.neural_networks import SamplerQNN
-from qiskit.utils import algorithm_globals
+from qiskit_finance.circuit.library import NormalDistribution, LogNormalDistribution, UniformDistribution
 from torch import nn
 import numpy as np
 import torch
@@ -23,7 +24,6 @@ import matplotlib.pyplot as plt
 import time
 from scipy.stats import entropy
 from typing import Callable
-from qiskit_finance.circuit.library import NormalDistribution, LogNormalDistribution, UniformDistribution
 
 class GeneratorCreator():
     def __init__(self, num_qubits: int, random_seed: int=None):

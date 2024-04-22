@@ -5,12 +5,10 @@ from qiskit import (
     QuantumRegister,
     AncillaRegister,
 )
-from qiskit.circuit.library import DraperQFTAdder
-from qiskit.circuit.library import LinearAmplitudeFunction
+from qiskit.circuit.library import DraperQFTAdder,  LinearAmplitudeFunction
 from qiskit_algorithms import EstimationProblem
 from qiskit_aer.primitives import Sampler
 
-from qiskit_aer.primitives import Sampler
 from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
 from qfinance.utils.tools import results_to_JSON, save_JSON, save_meta_data, time_convert
 from qfinance.qArithmetic import oneIncrement

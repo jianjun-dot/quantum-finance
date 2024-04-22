@@ -3,14 +3,14 @@ from qiskit_finance.circuit.library import LogNormalDistribution
 from qiskit.circuit.library import LinearAmplitudeFunction, DraperQFTAdder
 from qiskit_algorithms import EstimationProblem
 from qiskit_aer.primitives import Sampler
-from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
 from qiskit import QuantumRegister, AncillaRegister, QuantumCircuit
-from qfinance.helper import define_covariance_matrix
 
 from time import time
 from datetime import datetime
 from tqdm.auto import tqdm
 
+from qfinance.helper import define_covariance_matrix
+from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
 from qfinance.utils.tools import results_to_JSON, save_JSON, save_meta_data, time_convert
 
 # Get the current date and time

@@ -1,20 +1,16 @@
 import numpy as np
-from qfinance.helper import define_covariance_matrix
-from qfinance.qArithmetic import QComp
-from tqdm import tqdm
-from datetime import datetime
-
-import numpy as np
 from qiskit_finance.circuit.library import LogNormalDistribution
 from qiskit import (
     QuantumCircuit,
     QuantumRegister,
 )
-from qiskit.circuit.library import DraperQFTAdder
-from qiskit.circuit.library import LinearAmplitudeFunction
+from qiskit.circuit.library import DraperQFTAdder, LinearAmplitudeFunction
 from qiskit_algorithms import EstimationProblem
 from qiskit_aer.primitives import Sampler
+
 from qfinance.ModifiedIQAE.mod_iae_updated import ModifiedIterativeAmplitudeEstimation
+from qfinance.helper import define_covariance_matrix
+from qfinance.qArithmetic import QComp
 
 from datetime import datetime
 from tqdm.auto import tqdm
@@ -182,10 +178,6 @@ for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
     # construct amplitude estimation
     all_key_results = []
     for i in tqdm(range(n_trials), leave=False):
-        # qi = QuantumInstance(backend=AerSimulator(), shots=200)
-        # ae = ModifiedIterativeAmplitudeEstimation(
-        #     epsilon_target=epsilon, alpha=alpha, quantum_instance=qi)
-        # result = ae.estimate(problem, shots=200)
         ae = ModifiedIterativeAmplitudeEstimation(
             epsilon_target=epsilon, alpha=alpha, sampler=sampler)
         result = ae.estimate(problem, shots=N_shots, use_GPU=use_GPU)
