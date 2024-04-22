@@ -179,7 +179,7 @@ for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
         objectiveRegister,
         optionAncillaRegister,
     )
-    spread_option.append(u, firstRegister[:] + secondRegister[:])
+    spread_option.append(uncertainty_model, firstRegister[:] + secondRegister[:])
     spread_option.append(
         circ,
         firstRegister[:] + secondRegister[:] + carryRegister[:],
@@ -198,7 +198,7 @@ for (index, strike_price) in tqdm(enumerate(strike_prices), leave=False):
     )
 
     # evaluate exact expected value
-    sum_values = np.array([v[0] - v[1] for v in u.values])
+    sum_values = np.array([v[0] - v[1] for v in uncertainty_model.values])
     exact_value = np.dot(
         uncertainty_model.probabilities[sum_values >= strike_price],
         sum_values[sum_values >= strike_price] - strike_price,
